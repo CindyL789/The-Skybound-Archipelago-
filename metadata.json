@@ -1,0 +1,8 @@
+{
+  "name": "Skybound Archipelago",
+  "description": "Interactive storybook of The Skybound Archipelago: A Promise Against the Weather, featuring Sera Venn, Nami, and choices across the hanging city.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
