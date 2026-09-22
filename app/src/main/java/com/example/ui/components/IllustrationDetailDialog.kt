@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -74,6 +76,7 @@ fun IllustrationDetailDialog(
 ) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val scrollState = rememberScrollState()
+  val context = LocalContext.current
 
   val localBitmap = remember(illustration.localFilePath) {
     illustration.localFilePath?.let { path ->
@@ -245,6 +248,37 @@ fun IllustrationDetailDialog(
       ) {
         Button(
           onClick = {
+            val bmp = localBitmap ?: illustration.drawableResId?.let { resId ->
+              BitmapFactory.decodeResource(context.resources, resId)
+            }
+            viewModel.openVeoStudio(
+              sourceBitmap = bmp,
+              title = "${illustration.title} Motion",
+              initialPrompt = "Cinematic drifting clouds and atmospheric lighting across ${illustration.prompt}, 24fps",
+              aspectRatio = "16:9"
+            )
+            onDismiss()
+          },
+          modifier = Modifier
+            .weight(1f)
+            .testTag("animate_with_veo_button"),
+          shape = RoundedCornerShape(10.dp),
+          colors = ButtonDefaults.buttonColors(
+            containerColor = BlueGlass,
+            contentColor = VoidDark
+          )
+        ) {
+          Icon(
+            imageVector = Icons.Default.Videocam,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp)
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          Text("Animate with Veo", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+
+        Button(
+          onClick = {
             viewModel.openIllustrationStudio(
               sceneTitle = "${illustration.title} (Variation)",
               prompt = illustration.prompt,
@@ -267,7 +301,7 @@ fun IllustrationDetailDialog(
             modifier = Modifier.size(16.dp)
           )
           Spacer(modifier = Modifier.width(6.dp))
-          Text("Conjure Variation", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+          Text("Variation", fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
 
         if (illustration.isUserGenerated) {

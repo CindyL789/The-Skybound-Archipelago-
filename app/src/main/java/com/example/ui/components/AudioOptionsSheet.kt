@@ -89,9 +89,23 @@ import com.example.ui.theme.TextSecondaryNight
 import com.example.ui.theme.VermilionCourier
 import com.example.ui.theme.VoidDark
 
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import com.example.ai.GeneratedMusicTrack
+import com.example.ai.LyriaModel
+import com.example.ai.MusicPresetsCatalog
+
 enum class AudioTab(val label: String) {
   NARRATION("Read Aloud"),
-  AMBIENT("Ambient Sound")
+  AMBIENT("Ambient Sound"),
+  MUSIC("Lyria Music")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -217,6 +231,12 @@ fun AudioOptionsSheet(
         }
         AudioTab.AMBIENT -> {
           AmbientSection(
+            viewModel = viewModel,
+            uiState = uiState
+          )
+        }
+        AudioTab.MUSIC -> {
+          LyriaMusicSection(
             viewModel = viewModel,
             uiState = uiState
           )
@@ -1235,3 +1255,504 @@ private fun AmbientSection(
     )
   }
 }
+
+@Composable
+private fun LyriaMusicSection(
+  viewModel: StoryViewModel,
+  uiState: StoryUiState
+) {
+  var promptText by remember {
+    mutableStateOf("Grand cinematic fantasy orchestral theme with soaring French horns and cloud sea strings")
+  }
+  var trackTitle by remember { mutableStateOf("Skybound Fleet Odyssey") }
+
+  Column(modifier = Modifier.fillMaxWidth()) {
+    // Header Banner
+    Card(
+      modifier = Modifier
+        .fillMaxWidth()
+        .border(1.dp, NightCardBorder, RoundedCornerShape(12.dp)),
+      colors = CardDefaults.cardColors(containerColor = NightSurface),
+      shape = RoundedCornerShape(12.dp)
+    ) {
+      Column(modifier = Modifier.padding(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Box(
+            modifier = Modifier
+              .size(32.dp)
+              .clip(CircleShape)
+              .background(AmberLamp.copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center
+          ) {
+            Icon(
+              imageVector = Icons.Default.MusicNote,
+              contentDescription = null,
+              tint = AmberLamp,
+              modifier = Modifier.size(18.dp)
+            )
+          }
+          Spacer(modifier = Modifier.width(10.dp))
+          Column {
+            Text(
+              text = "LYRIA AI MUSIC ENGINE",
+              color = AmberLamp,
+              fontSize = 11.sp,
+              fontWeight = FontWeight.Bold,
+              letterSpacing = 1.2.sp
+            )
+            Text(
+              text = "Compose Archipelago Themes",
+              color = TextPrimaryNight,
+              fontSize = 15.sp,
+              fontWeight = FontWeight.Bold,
+              fontFamily = FontFamily.Serif
+            )
+          }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+          text = "Generate short motifs (up to 30s) or full-length orchestrated tracks for your Skybound adventure using Lyria.",
+          color = TextSecondaryNight,
+          fontSize = 11.sp,
+          lineHeight = 15.sp
+        )
+      }
+    }
+
+    Spacer(modifier = Modifier.height(14.dp))
+
+    // Model Selector (lyria-3-clip-preview vs lyria-3-pro-preview)
+    Text(
+      text = "SELECT LYRIA MODEL",
+      color = BlueGlass,
+      fontSize = 11.sp,
+      fontWeight = FontWeight.Bold,
+      letterSpacing = 1.sp
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+      val isClip = uiState.selectedMusicModel == LyriaModel.CLIP_PREVIEW
+      Card(
+        modifier = Modifier
+          .weight(1f)
+          .clip(RoundedCornerShape(10.dp))
+          .border(
+            1.5.dp,
+            if (isClip) AmberLamp else NightCardBorder,
+            RoundedCornerShape(10.dp)
+          )
+          .clickable { viewModel.selectMusicModel(LyriaModel.CLIP_PREVIEW) }
+          .testTag("lyria_model_clip_button"),
+        colors = CardDefaults.cardColors(
+          containerColor = if (isClip) AmberLamp.copy(alpha = 0.15f) else NightSurface
+        )
+      ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+          Text(
+            text = "Lyria 3 Clip",
+            color = if (isClip) AmberLamp else TextPrimaryNight,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+          )
+          Text(
+            text = "Short clip (up to 30s)",
+            color = TextSecondaryNight,
+            fontSize = 10.sp
+          )
+          Text(
+            text = "lyria-3-clip-preview",
+            color = TextMutedNight,
+            fontSize = 9.sp
+          )
+        }
+      }
+
+      val isPro = uiState.selectedMusicModel == LyriaModel.PRO_PREVIEW
+      Card(
+        modifier = Modifier
+          .weight(1f)
+          .clip(RoundedCornerShape(10.dp))
+          .border(
+            1.5.dp,
+            if (isPro) AmberLamp else NightCardBorder,
+            RoundedCornerShape(10.dp)
+          )
+          .clickable { viewModel.selectMusicModel(LyriaModel.PRO_PREVIEW) }
+          .testTag("lyria_model_pro_button"),
+        colors = CardDefaults.cardColors(
+          containerColor = if (isPro) AmberLamp.copy(alpha = 0.15f) else NightSurface
+        )
+      ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+          Text(
+            text = "Lyria 3 Pro",
+            color = if (isPro) AmberLamp else TextPrimaryNight,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+          )
+          Text(
+            text = "Full-length track",
+            color = TextSecondaryNight,
+            fontSize = 10.sp
+          )
+          Text(
+            text = "lyria-3-pro-preview",
+            color = TextMutedNight,
+            fontSize = 9.sp
+          )
+        }
+      }
+    }
+
+    Spacer(modifier = Modifier.height(14.dp))
+
+    // Presets
+    Text(
+      text = "THEMATIC MOTIFS",
+      color = BlueGlass,
+      fontSize = 11.sp,
+      fontWeight = FontWeight.Bold,
+      letterSpacing = 1.sp
+    )
+
+    Spacer(modifier = Modifier.height(6.dp))
+
+    LazyRow(
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      modifier = Modifier.fillMaxWidth()
+    ) {
+      items(MusicPresetsCatalog.presets) { preset ->
+        Box(
+          modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(NightSurface)
+            .border(1.dp, NightCardBorder, RoundedCornerShape(8.dp))
+            .clickable {
+              promptText = preset.prompt
+              trackTitle = preset.title
+            }
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
+          Column {
+            Text(
+              text = preset.title,
+              color = TextPrimaryNight,
+              fontSize = 11.sp,
+              fontWeight = FontWeight.Bold
+            )
+            Text(
+              text = preset.tag,
+              color = AmberLampSoft,
+              fontSize = 9.sp
+            )
+          }
+        }
+      }
+    }
+
+    Spacer(modifier = Modifier.height(10.dp))
+
+    OutlinedTextField(
+      value = promptText,
+      onValueChange = { promptText = it },
+      label = { Text("Musical Prompt / Description", color = TextSecondaryNight, fontSize = 11.sp) },
+      modifier = Modifier
+        .fillMaxWidth()
+        .testTag("lyria_prompt_input"),
+      maxLines = 3,
+      colors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = TextPrimaryNight,
+        unfocusedTextColor = TextPrimaryNight,
+        focusedBorderColor = AmberLamp,
+        unfocusedBorderColor = NightCardBorder,
+        focusedContainerColor = NightSurface,
+        unfocusedContainerColor = NightSurface
+      )
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    OutlinedTextField(
+      value = trackTitle,
+      onValueChange = { trackTitle = it },
+      label = { Text("Composition Title", color = TextSecondaryNight, fontSize = 11.sp) },
+      modifier = Modifier
+        .fillMaxWidth()
+        .testTag("lyria_title_input"),
+      singleLine = true,
+      colors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = TextPrimaryNight,
+        unfocusedTextColor = TextPrimaryNight,
+        focusedBorderColor = AmberLamp,
+        unfocusedBorderColor = NightCardBorder,
+        focusedContainerColor = NightSurface,
+        unfocusedContainerColor = NightSurface
+      )
+    )
+
+    if (uiState.musicGenerationError != null) {
+      Spacer(modifier = Modifier.height(8.dp))
+      Text(
+        text = uiState.musicGenerationError,
+        color = VermilionCourier,
+        fontSize = 11.sp
+      )
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    // Generate Button
+    Button(
+      onClick = {
+        viewModel.generateMusic(
+          title = trackTitle,
+          prompt = promptText,
+          model = uiState.selectedMusicModel
+        )
+      },
+      enabled = !uiState.isGeneratingMusic,
+      modifier = Modifier
+        .fillMaxWidth()
+        .height(46.dp)
+        .testTag("lyria_generate_button"),
+      shape = RoundedCornerShape(10.dp),
+      colors = ButtonDefaults.buttonColors(
+        containerColor = AmberLamp,
+        contentColor = VoidDark
+      )
+    ) {
+      if (uiState.isGeneratingMusic) {
+        CircularProgressIndicator(
+          modifier = Modifier.size(18.dp),
+          color = VoidDark,
+          strokeWidth = 2.dp
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+          text = "Generating with ${uiState.selectedMusicModel.modelId}...",
+          fontWeight = FontWeight.Bold,
+          fontSize = 12.sp
+        )
+      } else {
+        Icon(
+          imageVector = Icons.Default.MusicNote,
+          contentDescription = null,
+          modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+          text = "Generate Music (${uiState.selectedMusicModel.displayName})",
+          fontWeight = FontWeight.Bold,
+          fontSize = 13.sp
+        )
+      }
+    }
+
+    Spacer(modifier = Modifier.height(18.dp))
+
+    // Active Now Playing Bar
+    if (uiState.playingMusicTrackId != null) {
+      val activeTrack = uiState.generatedMusicTracks.find { it.id == uiState.playingMusicTrackId }
+      Card(
+        modifier = Modifier
+          .fillMaxWidth()
+          .border(1.dp, AmberLamp, RoundedCornerShape(12.dp))
+          .testTag("lyria_now_playing_card"),
+        colors = CardDefaults.cardColors(containerColor = NightSurfaceVariant),
+        shape = RoundedCornerShape(12.dp)
+      ) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+              text = "NOW PLAYING",
+              color = AmberLamp,
+              fontSize = 10.sp,
+              fontWeight = FontWeight.Bold,
+              letterSpacing = 1.sp
+            )
+            Text(
+              text = activeTrack?.title ?: "Playing Lyria Track",
+              color = TextPrimaryNight,
+              fontSize = 13.sp,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1
+            )
+            Text(
+              text = activeTrack?.model ?: "lyria-3",
+              color = TextSecondaryNight,
+              fontSize = 10.sp
+            )
+          }
+
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            // Loop toggle
+            IconButton(
+              onClick = { viewModel.toggleMusicLoop() },
+              modifier = Modifier.size(36.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.Repeat,
+                contentDescription = "Toggle Loop",
+                tint = if (uiState.isMusicLooping) AmberLamp else TextMutedNight,
+                modifier = Modifier.size(18.dp)
+              )
+            }
+
+            // Play / Pause
+            IconButton(
+              onClick = {
+                if (uiState.isMusicPlaying) viewModel.pauseMusicTrack()
+                else viewModel.resumeMusicTrack()
+              },
+              modifier = Modifier.size(36.dp)
+            ) {
+              Icon(
+                imageVector = if (uiState.isMusicPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = "Play/Pause",
+                tint = AmberLamp,
+                modifier = Modifier.size(22.dp)
+              )
+            }
+
+            // Stop
+            IconButton(
+              onClick = { viewModel.stopMusicTrack() },
+              modifier = Modifier.size(36.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.Stop,
+                contentDescription = "Stop",
+                tint = VermilionCourier,
+                modifier = Modifier.size(20.dp)
+              )
+            }
+          }
+        }
+      }
+
+      Spacer(modifier = Modifier.height(14.dp))
+    }
+
+    // Generated Compositions List
+    Text(
+      text = "SAVED COMPOSITIONS (${uiState.generatedMusicTracks.size})",
+      color = BlueGlass,
+      fontSize = 11.sp,
+      fontWeight = FontWeight.Bold,
+      letterSpacing = 1.sp
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    if (uiState.generatedMusicTracks.isEmpty()) {
+      Text(
+        text = "No compositions created yet. Use Lyria above to generate your first skybound score!",
+        color = TextSecondaryNight,
+        fontSize = 12.sp,
+        fontStyle = FontStyle.Italic
+      )
+    } else {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        uiState.generatedMusicTracks.forEach { track ->
+          val isCurrentlyPlaying = (uiState.playingMusicTrackId == track.id && uiState.isMusicPlaying)
+
+          Card(
+            modifier = Modifier
+              .fillMaxWidth()
+              .border(
+                1.dp,
+                if (isCurrentlyPlaying) AmberLamp else NightCardBorder,
+                RoundedCornerShape(10.dp)
+              ),
+            colors = CardDefaults.cardColors(
+              containerColor = if (isCurrentlyPlaying) AmberLamp.copy(alpha = 0.1f) else NightSurface
+            ),
+            shape = RoundedCornerShape(10.dp)
+          ) {
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                IconButton(
+                  onClick = {
+                    if (isCurrentlyPlaying) {
+                      viewModel.pauseMusicTrack()
+                    } else {
+                      viewModel.playMusicTrack(track)
+                    }
+                  },
+                  modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(if (isCurrentlyPlaying) AmberLamp else NightSurfaceVariant)
+                ) {
+                  Icon(
+                    imageVector = if (isCurrentlyPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = "Play Track",
+                    tint = if (isCurrentlyPlaying) VoidDark else TextPrimaryNight,
+                    modifier = Modifier.size(18.dp)
+                  )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column {
+                  Text(
+                    text = track.title,
+                    color = TextPrimaryNight,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                  )
+                  Text(
+                    text = "${track.model} • ~${track.durationSeconds}s",
+                    color = TextSecondaryNight,
+                    fontSize = 10.sp
+                  )
+                  if (track.note != null) {
+                    Text(
+                      text = track.note,
+                      color = AmberLampSoft,
+                      fontSize = 9.sp
+                    )
+                  }
+                }
+              }
+
+              IconButton(
+                onClick = { viewModel.deleteMusicTrack(track.id) },
+                modifier = Modifier.size(32.dp)
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Delete,
+                  contentDescription = "Delete",
+                  tint = TextMutedNight,
+                  modifier = Modifier.size(16.dp)
+                )
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

@@ -47,7 +47,7 @@ class StoryNarrator(
       onVoicesDiscovered(discoveredVoices)
       Log.d("StoryNarrator", "TTS initialized with ${discoveredVoices.size} voices found")
     } else {
-      Log.e("StoryNarrator", "TTS initialization failed with status $status")
+      Log.w("StoryNarrator", "TTS initialization returned status $status")
     }
   }
 
@@ -96,7 +96,7 @@ class StoryNarrator(
         )
       }.sortedWith(compareBy({ it.countryName }, { it.genderHint ?: "" }, { it.label }))
     } catch (e: Exception) {
-      Log.e("StoryNarrator", "Error scanning voices: ${e.message}")
+      Log.w("StoryNarrator", "Voices scan note: ${e.message}")
       emptyList()
     }
   }
@@ -135,7 +135,7 @@ class StoryNarrator(
       }
 
       override fun onError(utteranceId: String?) {
-        Log.e("StoryNarrator", "TTS Utterance error on $utteranceId")
+        Log.w("StoryNarrator", "TTS Utterance interrupted on $utteranceId")
         if (utteranceId == "sample_preview") {
           isPreviewing = false
           onPreviewStateChanged(false)

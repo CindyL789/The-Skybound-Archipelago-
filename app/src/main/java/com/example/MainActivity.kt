@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -40,7 +41,10 @@ import com.example.ui.components.AudioOptionsSheet
 import com.example.ui.components.IllustrationDetailDialog
 import com.example.ui.components.IllustrationStudioSheet
 import com.example.ui.components.LanternModeBar
+import com.example.ui.components.VeoStudioDialog
+import com.example.ui.components.VeoVideoPlayerDialog
 import com.example.ui.screens.ArchipelagoMapScreen
+import com.example.ui.screens.CharacterGeneratorScreen
 import com.example.ui.screens.CodexScreen
 import com.example.ui.screens.CourierSatchelScreen
 import com.example.ui.screens.IllustrationAtelierScreen
@@ -102,6 +106,10 @@ class MainActivity : ComponentActivity() {
                 viewModel = viewModel,
                 uiState = uiState
               )
+              NavigationTab.CHARACTER -> CharacterGeneratorScreen(
+                viewModel = viewModel,
+                uiState = uiState
+              )
               NavigationTab.MAP -> ArchipelagoMapScreen(
                 viewModel = viewModel
               )
@@ -143,6 +151,24 @@ class MainActivity : ComponentActivity() {
                 onDismiss = { viewModel.closeIllustrationDetail() }
               )
             }
+
+            // Veo Cinema Studio Dialog
+            if (uiState.showVeoStudioDialog) {
+              VeoStudioDialog(
+                viewModel = viewModel,
+                uiState = uiState,
+                onDismiss = { viewModel.closeVeoStudio() }
+              )
+            }
+
+            // Veo Video Player Dialog
+            uiState.activeViewingVideo?.let { video ->
+              VeoVideoPlayerDialog(
+                video = video,
+                onDismiss = { viewModel.setActiveViewingVideo(null) },
+                onDelete = { viewModel.deleteVeoVideo(video.id) }
+              )
+            }
           }
         }
       }
@@ -158,6 +184,7 @@ fun StoryNavigationBar(
 ) {
   val tabs = listOf(
     Pair(NavigationTab.READER, Icons.Default.AutoStories),
+    Pair(NavigationTab.CHARACTER, Icons.Default.Person),
     Pair(NavigationTab.MAP, Icons.Default.Map),
     Pair(NavigationTab.ATELIER, Icons.Default.Palette),
     Pair(NavigationTab.SATCHEL, Icons.Default.Work),

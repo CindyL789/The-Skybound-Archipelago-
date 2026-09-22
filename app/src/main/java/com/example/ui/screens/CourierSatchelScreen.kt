@@ -22,10 +22,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -41,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.CourierRig
 import com.example.data.StoryRepository
+import com.example.ui.NavigationTab
 import com.example.ui.StoryUiState
 import com.example.ui.StoryViewModel
 import com.example.ui.theme.AmberLamp
@@ -86,7 +91,7 @@ fun CourierSatchelScreen(
             letterSpacing = 1.5.sp
           )
           Text(
-            text = "Sera Venn's Satchel",
+            text = uiState.activeCharacter?.name?.let { "$it's Satchel" } ?: "Sera Venn's Satchel",
             color = TextPrimaryNight,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
@@ -94,12 +99,26 @@ fun CourierSatchelScreen(
           )
         }
 
-        Icon(
-          imageVector = Icons.Default.Work,
-          contentDescription = "Satchel",
-          tint = AmberLamp,
-          modifier = Modifier.size(28.dp)
-        )
+        Button(
+          onClick = { viewModel.setTab(NavigationTab.CHARACTER) },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = AmberLamp,
+            contentColor = VoidDark
+          ),
+          shape = RoundedCornerShape(8.dp)
+        ) {
+          Icon(
+            imageVector = Icons.Default.Person,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp)
+          )
+          Spacer(modifier = Modifier.width(4.dp))
+          Text(
+            text = "Forge",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold
+          )
+        }
       }
     }
 

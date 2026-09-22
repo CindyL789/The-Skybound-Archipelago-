@@ -128,4 +128,72 @@ class ExampleRobolectricTest {
 
     assertEquals(sampleJson, prefs.getSavedIllustrationsJson())
   }
+
+  @Test
+  fun `verify character generator engine and stat balance`() {
+    val procedural = com.example.character.CharacterGeneratorEngine.generateFullProceduralCharacter(
+      archetype = com.example.character.SkyfarerArchetype.SALT_COURIER,
+      origin = com.example.character.OriginIsle.OROS_CLIFFS,
+      lantern = com.example.character.LanternAffinity.AMBER_HEARTH
+    )
+
+    assertNotNull(procedural)
+    assertTrue(procedural.name.isNotBlank())
+    assertTrue(procedural.title.isNotBlank())
+    assertEquals(com.example.character.SkyfarerArchetype.SALT_COURIER, procedural.archetype)
+    assertEquals(com.example.character.OriginIsle.OROS_CLIFFS, procedural.originIsle)
+    assertEquals(com.example.character.LanternAffinity.AMBER_HEARTH, procedural.lanternAffinity)
+    // Verify balanced stat distribution: 28 total points
+    assertEquals(28, procedural.stats.totalPoints)
+    assertTrue(procedural.stats.tillerAgility >= 8) // Primary stat for Salt Courier
+    assertTrue(procedural.signatureRelic.isNotBlank())
+    assertTrue(procedural.personalityQuirk.isNotBlank())
+    assertTrue(procedural.motivation.isNotBlank())
+    assertTrue(procedural.backstory.isNotBlank())
+    assertTrue(procedural.customQuote.isNotBlank())
+  }
+
+  @Test
+  fun `verify character json serialization and persistence`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val prefs = com.example.data.CourierPreferences(context)
+
+    val char1 = com.example.character.CharacterGeneratorEngine.generateFullProceduralCharacter(
+      archetype = com.example.character.SkyfarerArchetype.MIST_NAVIGATOR
+    ).copy(name = "Zephyr Gale", title = "The Cloud-Tide Eye")
+
+    val char2 = com.example.character.CharacterGeneratorEngine.generateFullProceduralCharacter(
+      archetype = com.example.character.SkyfarerArchetype.CHAIN_CLIMBER
+    ).copy(name = "Brann Iron-Spur", title = "Iron-Grip of Thal")
+
+    val roster = listOf(char1, char2)
+    val json = com.example.character.SkyfarerCharacter.listToJson(roster)
+    prefs.saveCharactersJson(json)
+    prefs.activeCharacterId = char1.id
+
+    val loadedJson = prefs.getSavedCharactersJson()
+    assertNotNull(loadedJson)
+    val parsedRoster = com.example.character.SkyfarerCharacter.listFromJson(loadedJson!!)
+    assertEquals(2, parsedRoster.size)
+    assertEquals("Zephyr Gale", parsedRoster[0].name)
+    assertEquals("Brann Iron-Spur", parsedRoster[1].name)
+    assertEquals(char1.id, prefs.activeCharacterId)
+  }
+
+  @Test
+  fun `verify all skyfarer archetypes and affinities`() {
+    val archetypes = com.example.character.SkyfarerArchetype.values()
+    assertEquals(6, archetypes.size)
+
+    val origins = com.example.character.OriginIsle.values()
+    assertEquals(6, origins.size)
+
+    val affinities = com.example.character.LanternAffinity.values()
+    assertEquals(5, affinities.size)
+
+    archetypes.forEach { arch ->
+      val stats = com.example.character.CharacterGeneratorEngine.generateProceduralStats(arch)
+      assertEquals(28, stats.totalPoints)
+    }
+  }
 }

@@ -117,6 +117,34 @@ class CourierPreferences(context: Context) {
     prefs.edit().putString("key_saved_illustrations_json", json).apply()
   }
 
+  fun getSavedCharactersJson(): String? {
+    return prefs.getString("key_saved_characters_json", null)
+  }
+
+  fun saveCharactersJson(json: String) {
+    prefs.edit().putString("key_saved_characters_json", json).apply()
+  }
+
+  fun getSavedMusicJson(): String? {
+    return prefs.getString("key_saved_music_json", null)
+  }
+
+  fun saveMusicJson(json: String) {
+    prefs.edit().putString("key_saved_music_json", json).apply()
+  }
+
+  fun getSavedVideosJson(): String? {
+    return prefs.getString("key_saved_videos_json", null)
+  }
+
+  fun saveVideosJson(json: String) {
+    prefs.edit().putString("key_saved_videos_json", json).apply()
+  }
+
+  var activeCharacterId: String?
+    get() = prefs.getString("key_active_character_id", null)
+    set(value) = prefs.edit().putString("key_active_character_id", value).apply()
+
   private fun defaultItems(): Set<String> = setOf(
     "item_staff_lantern",
     "item_vermilion_sash",

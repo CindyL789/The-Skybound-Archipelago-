@@ -103,17 +103,46 @@ class ImagenIllustrationService(private val context: Context) {
 
     val fullPrompt = "$userPrompt, ${style.promptModifier}, highly detailed, cinematic lighting"
 
+    val validRatio = when (aspectRatio) {
+      "1:1", "16:9", "4:3", "3:4", "9:16" -> aspectRatio
+      else -> "16:9"
+    }
+
     if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-      Log.w("ImagenService", "GEMINI_API_KEY is missing or default placeholder. Using archive plate fallback.")
+      Log.i("ImagenService", "GEMINI_API_KEY not set. Using archive plate fallback.")
       return@withContext provideArchiveFallback(
         sceneTitle = sceneTitle,
         chapterId = chapterId,
-        reason = "GEMINI_API_KEY not configured. Set your key in the AI Studio Secrets panel to enable live Imagen 3 generation."
+        reason = "GEMINI_API_KEY not configured. Set your key in the AI Studio Secrets panel to enable live image generation."
       )
     }
 
-    // Try Primary: Imagen 3 (:predict)
-    val imagenResult = callImagen3Predict(apiKey, fullPrompt, aspectRatio)
+    // Try Primary: Gemini 2.5 Flash Image (:generateContent)
+    val flashResult = callGeminiImageGenerate(apiKey, fullPrompt, validRatio, "gemini-2.5-flash-image")
+    if (flashResult != null) {
+      val savedFile = saveBitmapLocally(flashResult, "scene_${System.currentTimeMillis()}")
+      return@withContext ImageGenerationResult.Success(
+        bitmap = flashResult,
+        savedFilePath = savedFile.absolutePath,
+        isLiveGeneration = true,
+        note = "Generated with Gemini Flash Image"
+      )
+    }
+
+    // Secondary fallback: Gemini 3.1 Flash Image Preview (:generateContent)
+    val previewResult = callGeminiImageGenerate(apiKey, fullPrompt, validRatio, "gemini-3.1-flash-image-preview")
+    if (previewResult != null) {
+      val savedFile = saveBitmapLocally(previewResult, "scene_${System.currentTimeMillis()}")
+      return@withContext ImageGenerationResult.Success(
+        bitmap = previewResult,
+        savedFilePath = savedFile.absolutePath,
+        isLiveGeneration = true,
+        note = "Generated with Gemini 3.1 Flash Image"
+      )
+    }
+
+    // Tertiary: Imagen 3 (:predict)
+    val imagenResult = callImagen3Predict(apiKey, fullPrompt, validRatio)
     if (imagenResult != null) {
       val savedFile = saveBitmapLocally(imagenResult, "scene_${System.currentTimeMillis()}")
       return@withContext ImageGenerationResult.Success(
@@ -124,24 +153,12 @@ class ImagenIllustrationService(private val context: Context) {
       )
     }
 
-    // Secondary fallback: Gemini 2.5 Flash Image (:generateContent)
-    val geminiResult = callGeminiImageGenerate(apiKey, fullPrompt, aspectRatio)
-    if (geminiResult != null) {
-      val savedFile = saveBitmapLocally(geminiResult, "scene_${System.currentTimeMillis()}")
-      return@withContext ImageGenerationResult.Success(
-        bitmap = geminiResult,
-        savedFilePath = savedFile.absolutePath,
-        isLiveGeneration = true,
-        note = "Generated with Gemini Flash Image"
-      )
-    }
-
-    // Fallback if network or quota issue
-    Log.e("ImagenService", "Image generation API calls unsuccessful. Returning fallback scene plate.")
+    // Fallback if offline, quota exhausted, or response unavailable
+    Log.i("ImagenService", "Live image generation unavailable. Serving archival scene plate.")
     return@withContext provideArchiveFallback(
       sceneTitle = sceneTitle,
       chapterId = chapterId,
-      reason = "Live generation reached quota or network limit. Displaying archived Skybound scene plate."
+      reason = "Live generation quota or network limit reached. Displaying archived Skybound scene plate."
     )
   }
 
@@ -174,7 +191,7 @@ class ImagenIllustrationService(private val context: Context) {
       val response = okHttpClient.newCall(request).execute()
       if (!response.isSuccessful) {
         val errBody = response.body?.string()
-        Log.w("ImagenService", "Imagen 3 response error ${response.code}: $errBody")
+        Log.w("ImagenService", "Imagen 3 response: ${response.code} $errBody")
         return null
       }
 
@@ -185,20 +202,26 @@ class ImagenIllustrationService(private val context: Context) {
         val pred = predictions.getJSONObject(0)
         val b64 = pred.optString("bytesBase64Encoded")
         if (b64.isNotEmpty()) {
-          val bytes = Base64.decode(b64, Base64.DEFAULT)
+          val clean = b64.replace("\n", "").replace("\r", "").trim()
+          val bytes = Base64.decode(clean, Base64.DEFAULT)
           return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         }
       }
       null
     } catch (e: Exception) {
-      Log.e("ImagenService", "callImagen3Predict exception: ${e.message}")
+      Log.w("ImagenService", "callImagen3Predict caught: ${e.message}")
       null
     }
   }
 
-  private fun callGeminiImageGenerate(apiKey: String, prompt: String, aspectRatio: String): Bitmap? {
+  private fun callGeminiImageGenerate(
+    apiKey: String,
+    prompt: String,
+    aspectRatio: String,
+    model: String = "gemini-2.5-flash-image"
+  ): Bitmap? {
     return try {
-      val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=$apiKey"
+      val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
 
       val jsonPayload = JSONObject().apply {
         val contents = JSONArray().apply {
@@ -213,7 +236,11 @@ class ImagenIllustrationService(private val context: Context) {
         }
         put("contents", contents)
         put("generationConfig", JSONObject().apply {
-          put("responseModalities", JSONArray().apply { put("IMAGE") })
+          // Gemini image models require both TEXT and IMAGE in responseModalities
+          put("responseModalities", JSONArray().apply {
+            put("TEXT")
+            put("IMAGE")
+          })
           put("imageConfig", JSONObject().apply {
             put("aspectRatio", aspectRatio)
           })
@@ -229,7 +256,7 @@ class ImagenIllustrationService(private val context: Context) {
       val response = okHttpClient.newCall(request).execute()
       if (!response.isSuccessful) {
         val errBody = response.body?.string()
-        Log.w("ImagenService", "Gemini flash image response error ${response.code}: $errBody")
+        Log.w("ImagenService", "$model response error ${response.code}: $errBody")
         return null
       }
 
@@ -240,17 +267,21 @@ class ImagenIllustrationService(private val context: Context) {
       if (parts != null) {
         for (i in 0 until parts.length()) {
           val part = parts.getJSONObject(i)
-          val inlineData = part.optJSONObject("inlineData")
+          val inlineData = part.optJSONObject("inlineData") ?: part.optJSONObject("inline_data")
           val b64 = inlineData?.optString("data")
           if (!b64.isNullOrEmpty()) {
-            val bytes = Base64.decode(b64, Base64.DEFAULT)
-            return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            val clean = b64.replace("\n", "").replace("\r", "").trim()
+            val bytes = Base64.decode(clean, Base64.DEFAULT)
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            if (bitmap != null) {
+              return bitmap
+            }
           }
         }
       }
       null
     } catch (e: Exception) {
-      Log.e("ImagenService", "callGeminiImageGenerate exception: ${e.message}")
+      Log.w("ImagenService", "callGeminiImageGenerate caught: ${e.message}")
       null
     }
   }

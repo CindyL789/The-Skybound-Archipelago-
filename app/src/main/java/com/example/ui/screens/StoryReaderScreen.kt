@@ -131,6 +131,14 @@ fun StoryReaderScreen(
   val secondaryTextColor = if (uiState.isParchmentMode) ParchmentTextSecondary else TextSecondaryNight
   val backgroundColor = if (uiState.isParchmentMode) ParchmentBg else VoidDark
 
+  val customIllustration = uiState.illustrationGallery.firstOrNull { it.chapterId == chapter.id && it.isUserGenerated }
+  val customBitmap = remember(customIllustration?.localFilePath) {
+    customIllustration?.localFilePath?.let { path ->
+      val file = File(path)
+      if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+    }
+  }
+
   Box(
     modifier = modifier
       .fillMaxSize()
@@ -304,12 +312,6 @@ fun StoryReaderScreen(
         }
 
         // Hero Illustration (either custom user-generated or curated chapter plate)
-        val customIllustration = uiState.illustrationGallery.firstOrNull { it.chapterId == chapter.id && it.isUserGenerated }
-        val customBitmap = customIllustration?.localFilePath?.let { path ->
-          val file = File(path)
-          if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
-        }
-
         if (customBitmap != null || chapter.imageRes != null) {
           item {
             Card(
@@ -798,41 +800,49 @@ private fun ParagraphView(
       }
     }
 
-    // Render text with clickable keyword highlights
-    val annotatedString = buildAnnotatedString {
-      val text = paragraph.text
+    // Render text with clickable keyword highlights (remembered for scroll performance)
+    val annotatedString = remember(paragraph.text, isParchment) {
+      buildAnnotatedString {
+        val text = paragraph.text
 
-      val matches = mutableListOf<Pair<IntRange, AnnotatedTerm>>()
-      StoryRepository.glossaryTerms.forEach { term ->
-        var idx = text.indexOf(term.term, ignoreCase = true)
-        while (idx >= 0) {
-          matches.add(Pair(idx until (idx + term.term.length), term))
-          idx = text.indexOf(term.term, idx + term.term.length, ignoreCase = true)
-        }
-      }
-
-      val sortedMatches = matches.sortedBy { it.first.first }
-      var curPos = 0
-
-      for ((range, term) in sortedMatches) {
-        if (range.first >= curPos) {
-          append(text.substring(curPos, range.first))
-          pushStringAnnotation(tag = "TERM", annotation = term.term)
-          withStyle(
-            style = SpanStyle(
-              color = if (isParchment) Color(0xFF8B263E) else BlueGlass,
-              fontWeight = FontWeight.SemiBold,
-              fontStyle = FontStyle.Normal
-            )
-          ) {
-            append(text.substring(range))
+        val matches = mutableListOf<Pair<IntRange, AnnotatedTerm>>()
+        StoryRepository.glossaryTerms.forEach { term ->
+          if (term.term.isNotBlank()) {
+            var idx = text.indexOf(term.term, ignoreCase = true)
+            var count = 0
+            while (idx >= 0 && count < 20) {
+              matches.add(Pair(idx until (idx + term.term.length), term))
+              val nextStart = idx + term.term.length
+              if (nextStart <= idx) break
+              idx = text.indexOf(term.term, nextStart, ignoreCase = true)
+              count++
+            }
           }
-          pop()
-          curPos = range.last + 1
         }
-      }
-      if (curPos < text.length) {
-        append(text.substring(curPos))
+
+        val sortedMatches = matches.sortedBy { it.first.first }
+        var curPos = 0
+
+        for ((range, term) in sortedMatches) {
+          if (range.first >= curPos) {
+            append(text.substring(curPos, range.first))
+            pushStringAnnotation(tag = "TERM", annotation = term.term)
+            withStyle(
+              style = SpanStyle(
+                color = if (isParchment) Color(0xFF8B263E) else BlueGlass,
+                fontWeight = FontWeight.SemiBold,
+                fontStyle = FontStyle.Normal
+              )
+            ) {
+              append(text.substring(range))
+            }
+            pop()
+            curPos = range.last + 1
+          }
+        }
+        if (curPos < text.length) {
+          append(text.substring(curPos))
+        }
       }
     }
 

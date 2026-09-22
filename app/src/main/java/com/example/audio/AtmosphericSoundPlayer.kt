@@ -7,8 +7,11 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import java.util.Random
 import kotlin.math.sin
 
@@ -26,7 +29,7 @@ enum class SoundscapePreset(val title: String, val description: String) {
 class AtmosphericSoundPlayer {
   private var audioTrack: AudioTrack? = null
   private var synthesisJob: Job? = null
-  private val scope = CoroutineScope(Dispatchers.Default)
+  private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
   @Volatile private var isPlaying = false
   @Volatile private var currentPreset = SoundscapePreset.CLOUD_SEA
@@ -81,7 +84,14 @@ class AtmosphericSoundPlayer {
           .setTransferMode(AudioTrack.MODE_STREAM)
           .build()
 
-        audioTrack?.play()
+        val track = audioTrack
+        if (track == null || track.state != AudioTrack.STATE_INITIALIZED) {
+          Log.w("AtmosphericPlayer", "AudioTrack not initialized (state: ${track?.state}). Stopping synthesis.")
+          isPlaying = false
+          return@launch
+        }
+
+        track.play()
 
         val buffer = ShortArray(1024)
         var phasePrimary = 0.0
@@ -175,10 +185,20 @@ class AtmosphericSoundPlayer {
             buffer[i] = (totalSample * 32767 * 0.4 * effectiveVol).toInt().toShort()
           }
 
-          audioTrack?.write(buffer, 0, buffer.size)
+          val currentTrack = audioTrack
+          if (currentTrack == null || currentTrack.playState != AudioTrack.PLAYSTATE_PLAYING) {
+            break
+          }
+          val written = currentTrack.write(buffer, 0, buffer.size)
+          if (written <= 0) {
+            Log.w("AtmosphericPlayer", "AudioTrack write returned $written, halting synthesis.")
+            isPlaying = false
+            break
+          }
+          yield()
         }
       } catch (e: Exception) {
-        Log.e("AtmosphericPlayer", "Audio synthesis error: ${e.message}")
+        Log.w("AtmosphericPlayer", "Audio synthesis stopped: ${e.message}")
       } finally {
         cleanup()
       }
@@ -189,16 +209,20 @@ class AtmosphericSoundPlayer {
     isPlaying = false
     synthesisJob?.cancel()
     synthesisJob = null
-    cleanup()
   }
 
   private fun cleanup() {
+    val track = audioTrack
+    audioTrack = null
     try {
-      audioTrack?.stop()
-      audioTrack?.release()
+      if (track != null) {
+        if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
+          track.stop()
+        }
+        track.release()
+      }
     } catch (e: Exception) {
       // ignore
     }
-    audioTrack = null
   }
 }
