@@ -96,9 +96,11 @@ fun VeoStudioDialog(
   onDismiss: () -> Unit
 ) {
   val context = LocalContext.current
-  var promptText by remember {
+  var promptText by remember(uiState.selectedVeoPrompt) {
     mutableStateOf(
-      "Cinematic drifting clouds with volumetric sunlight shafts across floating archipelago stone spires, 24fps smooth camera motion."
+      uiState.selectedVeoPrompt.ifBlank {
+        "Cinematic drifting clouds with volumetric sunlight shafts across floating archipelago stone spires, 24fps smooth camera motion."
+      }
     )
   }
   var videoTitle by remember { mutableStateOf(uiState.selectedVeoSourceTitle.ifBlank { "Archipelago Motion" }) }
