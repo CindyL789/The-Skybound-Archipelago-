@@ -154,6 +154,30 @@ class ExampleRobolectricTest {
   }
 
   @Test
+  fun `veo studio keeps the requested initial prompt`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val viewModel = com.example.ui.StoryViewModel(context as android.app.Application)
+    val prompt = "Drifting clouds over the Cloud Sea"
+
+    viewModel.openVeoStudio(initialPrompt = prompt)
+
+    assertEquals(prompt, viewModel.uiState.value.selectedVeoPrompt)
+  }
+
+  @Test
+  fun `veo operation response exposes generated video uri`() {
+    val wrappedResponse = org.json.JSONObject(
+      """{"response":{"generateVideoResponse":{"generatedSamples":[{"video":{"uri":"https://example.test/video.mp4"}}]}}}"""
+    )
+    val directResponse = org.json.JSONObject(
+      """{"response":{"generatedVideos":[{"video":{"uri":"https://example.test/direct.mp4"}}]}}"""
+    )
+
+    assertEquals("https://example.test/video.mp4", com.example.ai.generatedVideoUri(wrappedResponse))
+    assertEquals("https://example.test/direct.mp4", com.example.ai.generatedVideoUri(directResponse))
+  }
+
+  @Test
   fun `verify character json serialization and persistence`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val prefs = com.example.data.CourierPreferences(context)

@@ -100,6 +100,18 @@ sealed class VeoVideoResult {
   data class Error(val message: String) : VeoVideoResult()
 }
 
+internal fun generatedVideoUri(operation: JSONObject): String? {
+  val response = operation.optJSONObject("response") ?: return null
+  val videoResponse = response.optJSONObject("generateVideoResponse") ?: response
+  val generatedVideos = videoResponse.optJSONArray("generatedVideos")
+    ?: videoResponse.optJSONArray("generatedSamples")
+  return generatedVideos
+    ?.optJSONObject(0)
+    ?.optJSONObject("video")
+    ?.optString("uri")
+    ?.takeIf { it.isNotBlank() }
+}
+
 data class VeoMotionPreset(
   val title: String,
   val prompt: String,
@@ -181,6 +193,7 @@ class VeoVideoService(private val context: Context) {
         put("prompt", prompt)
         put("image", JSONObject().apply {
           put("imageBytes", imageBase64)
+          put("mimeType", "image/jpeg")
         })
         put("config", JSONObject().apply {
           put("numberOfVideos", 1)
@@ -201,7 +214,7 @@ class VeoVideoService(private val context: Context) {
         Log.w("VeoService", "Veo request returned ${response.code}: $errBody")
         val fallback = generateProceduralVideo(sourceBitmap, title, prompt, validAspectRatio, thumbFile.absolutePath)
         return@withContext VeoVideoResult.Success(
-          fallback.copy(note = "Generated with Skybound Veo motion engine (${response.code} API response)")
+          fallback.copy(note = "Live Veo unavailable (HTTP ${response.code}); generated local animation.")
         )
       }
 
@@ -211,7 +224,9 @@ class VeoVideoService(private val context: Context) {
 
       if (operationName.isNullOrEmpty()) {
         val fallback = generateProceduralVideo(sourceBitmap, title, prompt, validAspectRatio, thumbFile.absolutePath)
-        return@withContext VeoVideoResult.Success(fallback)
+        return@withContext VeoVideoResult.Success(
+          fallback.copy(note = "Live Veo response was incomplete; generated local animation.")
+        )
       }
 
       // Poll operation until done
@@ -232,12 +247,16 @@ class VeoVideoService(private val context: Context) {
         return@withContext VeoVideoResult.Success(video)
       } else {
         val fallback = generateProceduralVideo(sourceBitmap, title, prompt, validAspectRatio, thumbFile.absolutePath)
-        return@withContext VeoVideoResult.Success(fallback)
+        return@withContext VeoVideoResult.Success(
+          fallback.copy(note = "Live Veo generation did not complete; generated local animation.")
+        )
       }
     } catch (e: Exception) {
       Log.e("VeoService", "Error during Veo video generation", e)
       val fallback = generateProceduralVideo(sourceBitmap, title, prompt, validAspectRatio, thumbFile.absolutePath)
-      VeoVideoResult.Success(fallback)
+      VeoVideoResult.Success(
+        fallback.copy(note = "Live Veo unavailable; generated local animation.")
+      )
     }
   }
 
@@ -264,10 +283,7 @@ class VeoVideoService(private val context: Context) {
 
         val isDone = pollJson.optBoolean("done", false)
         if (isDone) {
-          val respObj = pollJson.optJSONObject("response")
-          val genVideos = respObj?.optJSONArray("generatedVideos")
-          val firstVid = genVideos?.optJSONObject(0)?.optJSONObject("video")
-          val videoUri = firstVid?.optString("uri")
+          val videoUri = generatedVideoUri(pollJson)
 
           if (!videoUri.isNullOrEmpty()) {
             val downloadUrl = if (videoUri.contains("?")) "$videoUri&key=$apiKey" else "$videoUri?key=$apiKey"
@@ -323,7 +339,7 @@ class VeoVideoService(private val context: Context) {
       timestamp = System.currentTimeMillis(),
       durationSeconds = 5,
       isLiveGeneration = false,
-      note = "Veo 3.1 Fast Cinematic Preview ($aspectRatio)"
+      note = "Generated with local procedural animation ($aspectRatio)"
     )
   }
 

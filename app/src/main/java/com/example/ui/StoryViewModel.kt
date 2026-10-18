@@ -40,6 +40,7 @@ import com.example.data.CourierPreferences
 import com.example.data.CourierRig
 import com.example.data.LanternMode
 import com.example.data.StoryRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -121,6 +122,7 @@ data class StoryUiState(
   val veoVideoGenerationError: String? = null,
   val showVeoStudioDialog: Boolean = false,
   val selectedVeoAspectRatio: String = "16:9",
+  val selectedVeoPrompt: String = "",
   val selectedVeoSourceBitmap: Bitmap? = null,
   val selectedVeoSourceTitle: String = "",
   val activeViewingVideo: VeoVideo? = null
@@ -963,6 +965,7 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
         showVeoStudioDialog = true,
         selectedVeoSourceBitmap = sourceBitmap,
         selectedVeoSourceTitle = title,
+        selectedVeoPrompt = initialPrompt,
         selectedVeoAspectRatio = if (aspectRatio == "9:16") "9:16" else "16:9",
         veoVideoGenerationError = null
       )
@@ -1009,7 +1012,22 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
     _uiState.update { it.copy(isGeneratingVeoVideo = true, veoVideoGenerationError = null) }
 
     viewModelScope.launch {
-      when (val result = veoService.generateVideoFromImage(bitmap, prompt, aspectRatio, title)) {
+      val result = try {
+        veoService.generateVideoFromImage(bitmap, prompt, aspectRatio, title)
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        Log.e("StoryViewModel", "Video generation failed", e)
+        _uiState.update {
+          it.copy(
+            isGeneratingVeoVideo = false,
+            veoVideoGenerationError = "Video generation failed. Please try again or choose another photo."
+          )
+        }
+        return@launch
+      }
+
+      when (result) {
         is VeoVideoResult.Success -> {
           val updated = listOf(result.video) + _uiState.value.veoVideos.filterNot { it.id == result.video.id }
           _uiState.update {
